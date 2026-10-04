@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D漢字タワー 〜百層の試練〜 (小学1〜6年生 全1026漢字完全対応)</title>
+  <meta name="description" content="Three.jsで描画された3Dの螺旋塔を駆け上がり、100層を目指す漢字学習3Dアクションアスレチックゲーム。小学校1〜6年生の全1026漢字を網羅。キーボード操作完全対応。">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js (r128 CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <!-- 3D WebGL Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- UIレイヤー -->
+  <div class="ui-layer">
+    <!-- HUD (ゲームプレイ中の情報表示) -->
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="hp-container">
+          <span class="hp-label">体力 (HP)</span>
+          <div class="hp-bar-bg">
+            <div id="hud-hp" class="hp-bar-fill"></div>
+          </div>
+          <span id="hud-hp-text" class="hp-value">100 / 100</span>
+        </div>
+
+        <div class="floor-badge-container">
+          <div id="hud-floor" class="hud-floor-badge">第 1 層 / 100</div>
+          <div id="hud-grade" class="hud-grade-badge">小学1年生配当</div>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="score-container">
+          <div class="score-label">スコア</div>
+          <div id="hud-score" class="score-value">0</div>
+        </div>
+        <div id="hud-combo" class="combo-badge hidden">2 連続正解!</div>
+      </div>
+    </div>
+
+    <!-- 画面下部キーボード操作ガイド -->
+    <div class="bottom-controls-bar">
+      <div class="ctrl-item">
+        <span class="key-tag">A</span><span class="key-tag">D</span> / <span class="key-tag">←</span><span class="key-tag">→</span> 走る
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">Space</span> / <span class="key-tag">W</span> ジャンプ
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">Shift</span> ダッシュ
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">S</span> しゃがみ/急降下
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">1</span>~<span class="key-tag">4</span> クイズ解答
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">M</span> 消音
+      </div>
+      <div class="ctrl-item">
+        <span class="key-tag">H</span> 操作一覧
+      </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast" class="hidden"></div>
+
+    <!-- タイトル画面 -->
+    <div id="title-screen">
+      <div class="title-kanji-crest">塔</div>
+      <h1 class="game-title">3D 漢字タワー</h1>
+      <p class="game-subtitle">〜 百層の試練・天空を翔ける修行者 〜</p>
+
+      <div class="title-actions">
+        <div class="press-start-btn">【Enter】または【Space】で登頂開始</div>
+        <div id="btn-continue-info" class="continue-btn hidden">【C】つづきから</div>
+      </div>
+
+      <div class="title-features">
+        <span class="feature-tag">🏫 小学1〜6年 全1026字 完全網羅</span>
+        <span class="feature-tag">⚔️ 3D螺旋アスレチック＆敵との攻防</span>
+        <span class="feature-tag">⌨️ キーボード操作完全対応</span>
+      </div>
+    </div>
+
+    <!-- クイズモーダル -->
+    <div id="quiz-modal" class="hidden">
+      <div class="quiz-card">
+        <div class="quiz-header">
+          <div id="quiz-floor-badge" class="quiz-floor-badge">第 1 層の試練</div>
+          <div id="quiz-type-badge" class="quiz-type-badge">訓読み問題</div>
+        </div>
+
+        <div class="quiz-kanji-frame">
+          <div id="quiz-kanji-big" class="quiz-kanji-big">山</div>
+        </div>
+
+        <div id="quiz-question" class="quiz-question">漢字【 山 】の訓読みとして正しいものはどれ？</div>
+
+        <!-- 4択ボタン (キーボード1〜4対応) -->
+        <div id="quiz-choices" class="quiz-choices"></div>
+
+        <!-- 正解・解説フィードバック -->
+        <div id="quiz-feedback" class="quiz-feedback hidden">
+          <div id="feedback-title" class="feedback-title"></div>
+          <div id="feedback-detail" class="feedback-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ゲームオーバー画面 -->
+    <div id="gameover-screen" class="overlay-screen hidden">
+      <h2 class="screen-title title-danger">力尽きた…</h2>
+      <p class="screen-subtitle">塔の険しさに修行が阻まれた！しかし経験は力となる！</p>
+      <div class="screen-stats">
+        <div id="go-floor">到達階数: 第 1 層</div>
+        <div id="go-score">スコア: 0</div>
+      </div>
+      <div class="restart-key-guide">【R】または【Enter】キーでチェックポイントから復活！</div>
+    </div>
+
+    <!-- 100層制覇・クリア画面 -->
+    <div id="victory-screen" class="overlay-screen hidden">
+      <div class="title-kanji-crest">極</div>
+      <h2 class="screen-title title-gold">百層登頂！全漢字マスター！</h2>
+      <p class="screen-subtitle">お見事！小学校1〜6年生のすべての漢字の試練を乗り越え、天守を制覇した！</p>
+      <div class="screen-stats">
+        <div id="vic-score">最高スコア: 0 点</div>
+        <div id="vic-kanji">習得漢字数: 0 字</div>
+        <div style="color: #ffd166; margin-top: 8px;">称号: 【天空の漢字龍神】</div>
+      </div>
+      <div class="restart-key-guide">【Enter】キーで再び頂を目指す</div>
+    </div>
+
+    <!-- ポーズ画面 -->
+    <div id="pause-screen" class="overlay-screen hidden">
+      <h2 class="screen-title" style="color: #f1f5f9;">一時停止 (PAUSE)</h2>
+      <p class="screen-subtitle">心を落ち着け、呼吸を整えよ。</p>
+      <div class="restart-key-guide">【ESC】または【Enter】で再開</div>
+    </div>
+
+    <!-- ヘルプモーダル -->
+    <div id="help-modal" class="overlay-screen hidden">
+      <div class="help-card">
+        <div class="help-title">📜 3D漢字タワー 操作手引き</div>
+        <div class="help-list">
+          <div class="help-row"><span>塔を周回・移動</span><span><span class="key-tag">A</span> <span class="key-tag">D</span> または <span class="key-tag">←</span> <span class="key-tag">→</span></span></div>
+          <div class="help-row"><span>ジャンプ</span><span><span class="key-tag">Space</span> または <span class="key-tag">W</span> / <span class="key-tag">↑</span></span></div>
+          <div class="help-row"><span>ダッシュ</span><span><span class="key-tag">Shift</span> を押しながら移動</span></div>
+          <div class="help-row"><span>しゃがみ / 急降下</span><span><span class="key-tag">S</span> または <span class="key-tag">↓</span></span></div>
+          <div class="help-row"><span>クイズ選択肢解答</span><span><span class="key-tag">1</span> <span class="key-tag">2</span> <span class="key-tag">3</span> <span class="key-tag">4</span> キー</span></div>
+          <div class="help-row"><span>次へ進む / 決定</span><span><span class="key-tag">Enter</span> または <span class="key-tag">Space</span></span></div>
+          <div class="help-row"><span>サウンドON/OFF</span><span><span class="key-tag">M</span> キー</span></div>
+          <div class="help-row"><span>一時停止</span><span><span class="key-tag">ESC</span> または <span class="key-tag">P</span></span></div>
+          <div class="help-row"><span>デバッグ階層スキップ</span><span><span class="key-tag">N</span> (次階) / <span class="key-tag">B</span> (前階)</span></div>
+        </div>
+        <div style="margin-top: 20px; text-align: center;">
+          <span class="key-tag">H</span> キーを押して閉じる
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ゲームスクリプト群 -->
+  <script src="js/kanji-data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/tower.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
